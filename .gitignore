@@ -8,6 +8,8 @@ Thumbs.db
 logs/
 tmp/
 .env
+go.*
+*.go
 .env.*
 !.env.example
 bin/
@@ -46,5 +48,3 @@ coverage/
 .webpack/
 public/
 dist/
-go.*
-*.go
