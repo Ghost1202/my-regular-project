@@ -8,8 +8,6 @@ Thumbs.db
 logs/
 tmp/
 .env
-go.*
-*.go
 .env.*
 !.env.example
 bin/
