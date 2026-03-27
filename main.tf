@@ -15,12 +15,11 @@ module "vpc" {
 
 module "app_ec2" {
   source = "./modules/ec2"
-  name   = local.name
 
-  ami_override           = var.ec2_ami_override
-  instance_type_override = var.ec2_instance_type_override
-  allocate_eip_override  = var.ec2_allocate_eip_override
-
+  name              = local.name
+  ami               = var.ami
+  instance_type     = var.instance_type
+  allocate_eip      = var.allocate_eip
   key_name          = var.key_name
   subnet_id         = module.vpc.public_subnet_ids[0]
   vpc_id            = module.vpc.vpc_id
@@ -51,22 +50,22 @@ variable "key_name" {
   description = "Key pair name for EC2"
 }
 
-variable "ec2_ami_override" {
+variable "ami" {
   type        = string
-  description = "Optional override for the AMI ID used by the EC2 module"
-  default     = null
+  description = "AMI ID for the EC2 instance"
+  default     = "ami-0e872aee57663ae2d"
 }
 
-variable "ec2_instance_type_override" {
+variable "instance_type" {
   type        = string
-  description = "Optional override for the EC2 instance type used by the EC2 module"
-  default     = null
+  description = "EC2 instance type"
+  default     = "t3.micro"
 }
 
-variable "ec2_allocate_eip_override" {
+variable "allocate_eip" {
   type        = bool
-  description = "Optional override for whether the EC2 module should allocate an Elastic IP"
-  default     = null
+  description = "Whether to allocate an Elastic IP for the EC2 instance"
+  default     = true
 }
 
 variable "zone_name" {
