@@ -45,3 +45,8 @@ variable "user_data" {
   type        = string
   description = "Rendered user data script for the EC2 instance"
 }
+
+variable "policy_arn" {
+  type        = string
+  description = "IAM policy ARN to attach to the EC2 role"
+}
