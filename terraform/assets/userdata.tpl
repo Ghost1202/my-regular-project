@@ -14,6 +14,8 @@ cat >/var/www/html/index.html <<EOF
 <body>
   <h1>${fqdn}</h1>
   <p>Server is running.</p>
+<h1>Server for ${fqdn}</h1>
+<p>Server is running.</p>
 </body>
 </html>
 EOF
@@ -22,6 +24,7 @@ cat >/etc/nginx/sites-available/default <<EOF
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
+    server_name ${fqdn};
 
     server_name ${fqdn};
 

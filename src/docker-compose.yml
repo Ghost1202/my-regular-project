@@ -1,0 +1,58 @@
+version: "3.9"
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  api:
+    image: 703288805108.dkr.ecr.eu-central-1.amazonaws.com/go-todo-app:latest
+    container_name: go-todo-app
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/todo
+      - JAEGER_AGENT_HOST=jaeger
+    depends_on:
+      - mongo
+      - jaeger
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  web:
+    image: 703288805108.dkr.ecr.eu-central-1.amazonaws.com/web:latest
+    container_name: go-todo-web
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    environment:
+      - API_URL=http://api:8080
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:3
+    container_name: go-todo-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  mongo-data:

@@ -46,5 +46,8 @@ coverage/
 .webpack/
 public/
 dist/
+<<<<<<< HEAD
 go.*
 *.go
+=======
+>>>>>>> 55b7e9bf0c6547b54beaa2ac5e7bf13785b53c8c
