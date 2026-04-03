@@ -1,11 +1,14 @@
 variable "name" {
-  type = string
+  type        = string
+  description = "Name prefix for backup resources"
 }
 
 variable "bucket_name" {
-  type = string
+  type        = string
+  description = "Backup bucket name"
 }
 
 variable "prefix" {
-  type = string
+  type        = string
+  description = "Prefix for stored backups"
 }
