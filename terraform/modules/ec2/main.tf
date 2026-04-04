@@ -1,3 +1,9 @@
+locals {
+  ami_id        = coalesce(var.ami_override, "ami-0e872aee57663ae2d")
+  instance_type = coalesce(var.instance_type_override, "t3.micro")
+  allocate_eip  = var.allocate_eip_override == null ? true : var.allocate_eip_override
+}
+
 resource "aws_iam_role" "this" {
   name = "${var.name}-ec2-role"
 
@@ -19,9 +25,31 @@ resource "aws_iam_role" "this" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "backup" {
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
   role       = aws_iam_role.this.name
-  policy_arn = var.policy_arn
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy" "logs_least_privilege" {
+  name = "${var.name}-logs-write"
+  role = aws_iam_role.this.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogStreams",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          for arn in var.cloudwatch_log_group_arns : "${arn}:*"
+        ]
+      }
+    ]
+  })
 }
 
 resource "aws_iam_instance_profile" "this" {
@@ -67,8 +95,8 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_instance" "this" {
-  ami                         = var.ami
-  instance_type               = var.instance_type
+  ami                         = local.ami_id
+  instance_type               = local.instance_type
   key_name                    = var.key_name
   subnet_id                   = var.subnet_id
   vpc_security_group_ids      = [aws_security_group.this.id]
@@ -82,7 +110,7 @@ resource "aws_instance" "this" {
 }
 
 resource "aws_eip" "this" {
-  count    = var.allocate_eip ? 1 : 0
+  count    = local.allocate_eip ? 1 : 0
   instance = aws_instance.this.id
   domain   = "vpc"
 

@@ -1,7 +1,16 @@
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+locals {
+  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+}
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
-  enable_dns_support   = true
   enable_dns_hostnames = true
+  enable_dns_support   = true
+
   tags = {
     Name = var.name
   }
@@ -16,15 +25,17 @@ resource "aws_internet_gateway" "this" {
 }
 
 resource "aws_subnet" "public" {
-  count = 2
+  for_each = {
+    for idx, az in local.azs : az => idx
+  }
 
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = cidrsubnet(var.vpc_cidr, 8, index(data.aws_availability_zones.available.names, each.key))
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, each.value)
   availability_zone       = each.key
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.name}-public-${count.index + 1}"
+    Name = "${var.name}-public-${each.key}"
   }
 }
 
@@ -43,11 +54,8 @@ resource "aws_route" "internet_access" {
 }
 
 resource "aws_route_table_association" "public" {
-  count = 2
+  for_each = aws_subnet.public
 
-  subnet_id      = aws_subnet.public[count.index].id
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
-}
-data "aws_availability_zones" "available" {
-  state = "available"
 }
