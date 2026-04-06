@@ -3,13 +3,13 @@ variable "name" {
   description = "Name prefix for EC2-related resources"
 }
 
-variable "ami_override" {
+variable "ami" {
   type        = string
   description = "AMI ID of the EC2 instance"
   default     = "ami-0e872aee57663ae2d"
 }
 
-variable "instance_type_override" {
+variable "instance_type" {
   type        = string
   description = "EC2 instance type"
   default     = "t3.micro"
@@ -35,7 +35,7 @@ variable "ssh_allowed_cidrs" {
   description = "Allowed CIDRs for SSH access"
 }
 
-variable "allocate_eip_override" {
+variable "allocate_eip" {
   type        = bool
   description = "Whether to allocate an Elastic IP for the instance"
   default     = true

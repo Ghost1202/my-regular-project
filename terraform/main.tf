@@ -9,6 +9,16 @@ locals {
     fqdn              = "app.kbnby.online"
     key_name          = "my-regular-project-dev"
     ssh_allowed_cidrs = ["0.0.0.0/0"]
+
+    vpc_cidr = "10.0.0.0/16"
+    azs      = ["eu-central-1a", "eu-central-1b"]
+
+    public_subnets = [
+      "10.0.1.0/24",
+      "10.0.2.0/24"
+    ]
+
+    ecr_registry = "703288805108.dkr.ecr.eu-central-1.amazonaws.com"
   }
 
   envs = {
@@ -29,7 +39,7 @@ locals {
     app_log_group_name   = module.logging.app_log_group_name
     nginx_log_group_name = module.logging.nginx_log_group_name
     aws_region           = local.current_env_config.aws_region
-    ecr_registry         = "703288805108.dkr.ecr.eu-central-1.amazonaws.com"
+    ecr_registry         = local.current_env_config.ecr_registry
   })
 }
 
@@ -39,9 +49,23 @@ resource "random_password" "redis_auth" {
 }
 
 module "vpc" {
-  source   = "./modules/vpc"
-  name     = local.name
-  vpc_cidr = "10.0.0.0/16"
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "6.6.0"
+
+  name = local.name
+  cidr = local.current_env_config.vpc_cidr
+
+  azs            = local.current_env_config.azs
+  public_subnets = local.current_env_config.public_subnets
+
+  enable_nat_gateway = false
+  single_nat_gateway = false
+
+  tags = {
+    Name        = local.name
+    Environment = local.env
+    Project     = local.project
+  }
 }
 
 module "logging" {
@@ -60,12 +84,13 @@ module "ec2" {
   source = "./modules/ec2"
 
   name              = local.name
-  subnet_id         = module.vpc.public_subnet_ids[0]
+  subnet_id         = module.vpc.public_subnets[0]
   vpc_id            = module.vpc.vpc_id
   key_name          = local.current_env_config.key_name
   ssh_allowed_cidrs = local.current_env_config.ssh_allowed_cidrs
   user_data         = local.user_data
   backup_policy_arn = module.s3.policy_arn
+
   cloudwatch_log_group_arns = [
     module.logging.app_log_group_arn,
     module.logging.nginx_log_group_arn
@@ -73,10 +98,11 @@ module "ec2" {
 }
 
 module "elasticache" {
-  source         = "./modules/elasticache"
+  source = "./modules/elasticache"
+
   name           = local.name
   vpc_id         = module.vpc.vpc_id
-  subnet_ids     = module.vpc.public_subnet_ids
+  subnet_ids     = module.vpc.public_subnets
   allowed_sg_ids = module.ec2.security_group_ids
   auth_token     = random_password.redis_auth.result
 }

@@ -99,8 +99,8 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_instance" "this" {
-  ami                         = var.ami_override
-  instance_type               = var.instance_type_override
+  ami                         = var.ami
+  instance_type               = var.instance_type
   key_name                    = var.key_name
   subnet_id                   = var.subnet_id
   vpc_security_group_ids      = [aws_security_group.this.id]
@@ -114,7 +114,7 @@ resource "aws_instance" "this" {
 }
 
 resource "aws_eip" "this" {
-  count    = var.allocate_eip_override ? 1 : 0
+  count    = var.allocate_eip ? 1 : 0
   instance = aws_instance.this.id
   domain   = "vpc"
 

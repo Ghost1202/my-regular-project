@@ -29,3 +29,9 @@ variable "node_type" {
   description = "ElastiCache node type"
   default     = "cache.t3.micro"
 }
+
+variable "engine_version" {
+  type        = string
+  description = "Redis engine version"
+  default     = "7.1"
+}
