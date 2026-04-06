@@ -22,14 +22,15 @@ systemctl enable docker
 systemctl start docker
 usermod -aG docker ubuntu || true
 
-mkdir -p /opt/app
-cd /opt/app
+mkdir -p /docker
+cd /docker
 
 git clone --depth 1 --branch dev https://github.com/Ghost1202/my-regular-project.git repo
 
-cp /opt/app/repo/src/docker-compose.yml /opt/app/docker-compose.yml
+cp /docker/repo/src/docker-compose.yml /docker/docker-compose.yml
+rm -rf /docker/repo
 
-cat >/opt/app/docker-compose.override.yml <<EOF
+cat >/docker/docker-compose.override.yml <<EOF
 services:
   api:
     environment:
@@ -50,7 +51,7 @@ EOF
 
 python3 - <<'PY'
 from pathlib import Path
-p = Path('/opt/app/docker-compose.yml')
+p = Path('/docker/docker-compose.yml')
 text = p.read_text()
 
 # remove mongo service block
@@ -77,7 +78,7 @@ chown -R ubuntu:ubuntu /var/log/myapp || true
 cat >/opt/aws-logs-app-compose.sh <<'EOF'
 #!/bin/bash
 set -euo pipefail
-cd /opt/app
+cd /docker
 docker compose up -d >> /var/log/myapp/app.log 2>&1
 EOF
 chmod +x /opt/aws-logs-app-compose.sh

@@ -8,7 +8,7 @@ output "public_ip" {
   description = "Public IP of EC2 instance"
 }
 
-output "security_group_id" {
-  value       = aws_security_group.this.id
-  description = "Security group ID of the EC2 instance"
+output "security_group_ids" {
+  value       = [aws_security_group.this.id]
+  description = "Security group IDs attached to the EC2 instance"
 }

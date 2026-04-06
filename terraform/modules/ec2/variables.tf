@@ -5,14 +5,14 @@ variable "name" {
 
 variable "ami_override" {
   type        = string
-  description = "Optional override for the AMI ID of the EC2 instance"
-  default     = null
+  description = "AMI ID of the EC2 instance"
+  default     = "ami-0e872aee57663ae2d"
 }
 
 variable "instance_type_override" {
   type        = string
-  description = "Optional override for the EC2 instance type"
-  default     = null
+  description = "EC2 instance type"
+  default     = "t3.micro"
 }
 
 variable "key_name" {
@@ -37,8 +37,13 @@ variable "ssh_allowed_cidrs" {
 
 variable "allocate_eip_override" {
   type        = bool
-  description = "Optional override for whether to allocate an Elastic IP"
-  default     = null
+  description = "Whether to allocate an Elastic IP for the instance"
+  default     = true
+}
+
+variable "backup_policy_arn" {
+  type        = string
+  description = "IAM policy ARN for uploading database backups to S3"
 }
 
 variable "user_data" {
