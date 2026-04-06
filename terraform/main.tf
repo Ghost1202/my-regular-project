@@ -4,15 +4,11 @@ locals {
   name    = "${local.project}-${local.env}"
 
   base_config = {
-    aws_region = "eu-central-1"
-    zone_name  = "kbnby.online"
-    fqdn       = "app.kbnby.online"
-
-    key_name = "my-regular-project-dev"
-
-    ssh_allowed_cidrs = [
-      "0.0.0.0/0"
-    ]
+    aws_region        = "eu-central-1"
+    zone_name         = "kbnby.online"
+    fqdn              = "app.kbnby.online"
+    key_name          = "my-regular-project-dev"
+    ssh_allowed_cidrs = ["0.0.0.0/0"]
   }
 
   envs = {
@@ -25,13 +21,15 @@ locals {
     lookup(local.envs, local.env, local.envs.default)
   )
 
-  user_data = templatefile("${path.module}/assets/userdata.tpl", {
+  user_data = templatefile("${path.root}/assets/userdata.tpl", {
     fqdn                 = local.current_env_config.fqdn
     redis_host           = module.elasticache.primary_endpoint_address
     redis_port           = module.elasticache.port
     redis_auth_token     = random_password.redis_auth.result
     app_log_group_name   = module.logging.app_log_group_name
     nginx_log_group_name = module.logging.nginx_log_group_name
+    aws_region           = local.current_env_config.aws_region
+    ecr_registry         = "703288805108.dkr.ecr.eu-central-1.amazonaws.com"
   })
 }
 
@@ -41,8 +39,9 @@ resource "random_password" "redis_auth" {
 }
 
 module "vpc" {
-  source = "./modules/vpc"
-  name   = local.name
+  source   = "./modules/vpc"
+  name     = local.name
+  vpc_cidr = "10.0.0.0/16"
 }
 
 module "logging" {
@@ -51,8 +50,7 @@ module "logging" {
 }
 
 module "s3" {
-  source = "./modules/s3"
-
+  source      = "./modules/s3"
   name        = local.name
   bucket_name = "${local.name}-db-backups"
   prefix      = "db-backups/"
@@ -68,7 +66,6 @@ module "ec2" {
   ssh_allowed_cidrs = local.current_env_config.ssh_allowed_cidrs
   user_data         = local.user_data
   backup_policy_arn = module.s3.policy_arn
-
   cloudwatch_log_group_arns = [
     module.logging.app_log_group_arn,
     module.logging.nginx_log_group_arn
@@ -76,8 +73,7 @@ module "ec2" {
 }
 
 module "elasticache" {
-  source = "./modules/elasticache"
-
+  source         = "./modules/elasticache"
   name           = local.name
   vpc_id         = module.vpc.vpc_id
   subnet_ids     = module.vpc.public_subnet_ids

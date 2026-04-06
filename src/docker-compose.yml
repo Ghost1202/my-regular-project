@@ -13,6 +13,10 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/todo
       - JAEGER_AGENT_HOST=jaeger
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_TLS=${REDIS_TLS}
     depends_on:
       - mongo
       - jaeger
@@ -28,7 +32,7 @@ services:
     depends_on:
       - api
     environment:
-      - API_URL=http://api:8080
+      - API_URL=http://app.kbnby.online
     restart: unless-stopped
     networks:
       - app-network
