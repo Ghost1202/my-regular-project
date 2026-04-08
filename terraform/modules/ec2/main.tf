@@ -122,3 +122,9 @@ resource "aws_eip" "this" {
     Name = "${var.name}-eip"
   }
 }
+
+variable "security_group_ids" {
+  type    = list(string)
+  default = []
+}
+

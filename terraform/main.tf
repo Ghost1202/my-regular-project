@@ -80,6 +80,34 @@ module "s3" {
   prefix      = "db-backups/"
 }
 
+# --- Новая Security Group для EC2 с открытым портом 8080 ---
+resource "aws_security_group" "ec2_sg" {
+  name        = local.name
+  description = "EC2 security group with SSH and HTTP 8080 open"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = local.current_env_config.ssh_allowed_cidrs
+  }
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 module "ec2" {
   source = "./modules/ec2"
 
@@ -90,6 +118,8 @@ module "ec2" {
   ssh_allowed_cidrs = local.current_env_config.ssh_allowed_cidrs
   user_data         = local.user_data
   backup_policy_arn = module.s3.policy_arn
+
+  security_group_ids = [aws_security_group.ec2_sg.id]
 
   cloudwatch_log_group_arns = [
     module.logging.app_log_group_arn,

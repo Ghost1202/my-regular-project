@@ -4,7 +4,13 @@ set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update -y
-apt-get install -y ca-certificates curl gnupg lsb-release
+apt-get install -y \
+  ca-certificates \
+  curl \
+  gnupg \
+  lsb-release \
+  unzip \
+  git
 
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -13,27 +19,36 @@ chmod a+r /etc/apt/keyrings/docker.asc
 echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
-  >/etc/apt/sources.list.d/docker.list
+  > /etc/apt/sources.list.d/docker.list
 
 apt-get update -y
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+apt-get install -y \
+  docker-ce \
+  docker-ce-cli \
+  containerd.io \
+  docker-buildx-plugin \
+  docker-compose-plugin
 
 systemctl enable docker
 systemctl start docker
 usermod -aG docker ubuntu || true
 
-# ECR авторизация
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install
+rm -rf /tmp/aws /tmp/awscliv2.zip
+
 aws ecr get-login-password --region ${aws_region} | \
   docker login --username AWS --password-stdin ${ecr_registry}
 
 mkdir -p /docker
 cd /docker
 
-git clone --depth 1 --branch dev https://github.com/Ghost1202/my-regular-project.git repo
+git clone --depth 1 https://github.com/Ghost1202/my-regular-project.git repo
 cp /docker/repo/src/docker-compose.yml /docker/docker-compose.yml
 rm -rf /docker/repo
 
-cat >/docker/docker-compose.override.yml <<EOF
+cat > /docker/docker-compose.override.yml <<EOF
 services:
   api:
     environment:
@@ -44,23 +59,26 @@ services:
       - REDIS_PASSWORD=${redis_auth_token}
       - REDIS_TLS=true
       - JAEGER_AGENT_HOST=jaeger
-    depends_on:
-      - jaeger
   web:
     environment:
-      - API_URL=http://app.kbnby.online
+      - API_URL=http://${fqdn}
 EOF
 
 mkdir -p /var/log/myapp
 touch /var/log/myapp/app.log
-chown -R ubuntu:ubuntu /var/log/myapp || true
+chown -R ubuntu:ubuntu /var/log/myapp
 
-# Установка CloudWatch агента
-wget -O /tmp/amazon-cloudwatch-agent.deb https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+mkdir -p /var/log/nginx
+touch /var/log/nginx/access.log /var/log/nginx/error.log
+chown -R ubuntu:ubuntu /var/log/nginx
+
+wget -O /tmp/amazon-cloudwatch-agent.deb \
+  https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 dpkg -i /tmp/amazon-cloudwatch-agent.deb
+
 mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
 
-cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
 {
   "logs": {
     "logs_collected": {
@@ -71,6 +89,18 @@ cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
             "log_group_name": "${app_log_group_name}",
             "log_stream_name": "{instance_id}-app",
             "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/nginx/access.log",
+            "log_group_name": "${nginx_log_group_name}",
+            "log_stream_name": "{instance_id}-nginx-access",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/nginx/error.log",
+            "log_group_name": "${nginx_log_group_name}",
+            "log_stream_name": "{instance_id}-nginx-error",
+            "timezone": "UTC"
           }
         ]
       }
@@ -79,11 +109,11 @@ cat >/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<EOF
 }
 EOF
 
-# Запуск приложения
-docker compose -f /docker/docker-compose.yml -f /docker/docker-compose.override.yml up -d >> /var/log/myapp/app.log 2>&1
-
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -a fetch-config \
   -m ec2 \
   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
   -s
+
+docker compose -f /docker/docker-compose.yml -f /docker/docker-compose.override.yml pull >> /var/log/myapp/app.log 2>&1
+docker compose -f /docker/docker-compose.yml -f /docker/docker-compose.override.yml up -d >> /var/log/myapp/app.log 2>&1
