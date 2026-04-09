@@ -15,7 +15,7 @@ resource "aws_iam_role" "this" {
   })
 
   tags = {
-    Name = "${var.name}-ec2-role"
+    Name = var.name
   }
 }
 
@@ -29,9 +29,10 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "db_backup_s3" {
+resource "aws_iam_role_policy_attachment" "extra" {
+  for_each   = toset(var.policy_arns)
   role       = aws_iam_role.this.name
-  policy_arn = var.backup_policy_arn
+  policy_arn = each.value
 }
 
 resource "aws_iam_role_policy" "logs_least_privilege" {
@@ -61,7 +62,7 @@ resource "aws_iam_instance_profile" "this" {
   role = aws_iam_role.this.name
 
   tags = {
-    Name = "${var.name}-ec2-profile"
+    Name = var.name
   }
 }
 
@@ -94,7 +95,7 @@ resource "aws_security_group" "this" {
   }
 
   tags = {
-    Name = "${var.name}-sg"
+    Name = var.name
   }
 }
 
@@ -109,7 +110,7 @@ resource "aws_instance" "this" {
   user_data                   = var.user_data
 
   tags = {
-    Name = "${var.name}-ec2"
+    Name = var.name
   }
 }
 
@@ -119,12 +120,6 @@ resource "aws_eip" "this" {
   domain   = "vpc"
 
   tags = {
-    Name = "${var.name}-eip"
+    Name = var.name
   }
 }
-
-variable "security_group_ids" {
-  type    = list(string)
-  default = []
-}
-

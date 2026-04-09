@@ -11,12 +11,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/todo
+      - MONGO_URL=mongodb://mongo:27017
+      - MONGO_TODO_DB=todo
       - JAEGER_AGENT_HOST=jaeger
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - REDIS_TLS=${REDIS_TLS}
     depends_on:
       - mongo
       - jaeger

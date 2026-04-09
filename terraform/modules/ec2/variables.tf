@@ -41,9 +41,10 @@ variable "allocate_eip" {
   default     = true
 }
 
-variable "backup_policy_arn" {
-  type        = string
-  description = "IAM policy ARN for uploading database backups to S3"
+variable "policy_arns" {
+  type        = list(string)
+  description = "List of IAM policy ARNs to attach to the EC2 role"
+  default     = []
 }
 
 variable "user_data" {

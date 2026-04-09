@@ -18,16 +18,10 @@ variable "allowed_sg_ids" {
   description = "Security groups allowed to connect to Redis"
 }
 
-variable "auth_token" {
-  type        = string
-  description = "Redis AUTH token"
-  sensitive   = true
-}
-
 variable "node_type" {
   type        = string
   description = "ElastiCache node type"
-  default     = "cache.t3.micro"
+  default     = "cache.t4g.micro"
 }
 
 variable "engine_version" {
