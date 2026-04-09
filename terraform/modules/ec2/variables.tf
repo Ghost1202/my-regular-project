@@ -57,3 +57,8 @@ variable "cloudwatch_log_group_arns" {
   description = "List of CloudWatch log group ARNs for least-privilege writes"
   default     = []
 }
+
+variable "policy_arn" {
+  type        = string
+  description = "Policy for buckup"
+}

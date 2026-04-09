@@ -83,6 +83,7 @@ module "ec2" {
   ssh_allowed_cidrs = local.current_env_config.ssh_allowed_cidrs
   user_data         = local.user_data
   policy_arns       = [module.s3.policy_arn]
+  policy_arn        = module.s3.policy_arn
 
   cloudwatch_log_group_arns = [
     module.logging.app_log_group_arn,
