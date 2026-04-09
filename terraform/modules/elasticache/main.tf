@@ -9,10 +9,6 @@ resource "aws_security_group" "this" {
     protocol        = "tcp"
     security_groups = var.allowed_sg_ids
   }
-
-  tags = {
-    Name = var.name
-  }
 }
 
 resource "aws_elasticache_subnet_group" "this" {
@@ -30,8 +26,4 @@ resource "aws_elasticache_cluster" "this" {
 
   subnet_group_name  = aws_elasticache_subnet_group.this.name
   security_group_ids = [aws_security_group.this.id]
-
-  tags = {
-    Name = var.name
-  }
 }

@@ -36,7 +36,7 @@ locals {
     redis_auth_token     = random_password.redis_auth.result
     app_log_group_name   = module.logging.app_log_group_name
     nginx_log_group_name = module.logging.nginx_log_group_name
-    aws_region           = data.aws_region.this.name
+    aws_region           = data.aws_region.this.region
     ecr_registry         = local.current_env_config.ecr_registry
   })
 }
@@ -104,12 +104,4 @@ module "elasticache" {
 data "aws_route53_zone" "main" {
   name         = local.current_env_config.zone_name
   private_zone = false
-}
-
-resource "aws_route53_record" "this" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = local.current_env_config.fqdn
-  type    = "A"
-  ttl     = 300
-  records = [module.ec2.public_ip]
 }

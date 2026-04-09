@@ -35,11 +35,6 @@ variable "ssh_allowed_cidrs" {
   description = "Allowed CIDRs for SSH access"
 }
 
-variable "allocate_eip" {
-  type        = bool
-  description = "Whether to allocate an Elastic IP for the instance"
-  default     = true
-}
 
 variable "policy_arns" {
   type        = list(string)
