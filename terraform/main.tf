@@ -28,22 +28,29 @@ locals {
 
   public_subnets = [for i, az in local.azs : cidrsubnet(local.vpc_cidr, 8, i)]
   intra_subnets  = [for i, az in local.azs : cidrsubnet(local.vpc_cidr, 8, i + 10)]
+}
 
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/${local.name}/app"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "nginx" {
+  name              = "/${local.name}/nginx"
+  retention_in_days = 7
+}
+
+locals {
   user_data = templatefile("${path.root}/assets/userdata.tpl", {
     fqdn                 = local.current_env_config.fqdn
     redis_host           = module.elasticache.primary_endpoint_address
     redis_port           = module.elasticache.port
-    redis_auth_token     = random_password.redis_auth.result
-    app_log_group_name   = module.logging.app_log_group_name
-    nginx_log_group_name = module.logging.nginx_log_group_name
+    redis_auth_token     = module.auth.password
+    app_log_group_name   = aws_cloudwatch_log_group.app.name
+    nginx_log_group_name = aws_cloudwatch_log_group.nginx.name
     aws_region           = data.aws_region.this.region
     ecr_registry         = local.current_env_config.ecr_registry
   })
-}
-
-resource "random_password" "redis_auth" {
-  length  = 32
-  special = false
 }
 
 module "vpc" {
@@ -59,11 +66,6 @@ module "vpc" {
 
   enable_nat_gateway = false
   single_nat_gateway = false
-}
-
-module "logging" {
-  source = "./modules/logging"
-  name   = local.name
 }
 
 module "s3" {
@@ -82,12 +84,14 @@ module "ec2" {
   key_name          = local.current_env_config.key_name
   ssh_allowed_cidrs = local.current_env_config.ssh_allowed_cidrs
   user_data         = local.user_data
-  policy_arns       = [module.s3.policy_arn]
-  policy_arn        = module.s3.policy_arn
+
+  policy_arns = [
+    module.s3.policy_arn
+  ]
 
   cloudwatch_log_group_arns = [
-    module.logging.app_log_group_arn,
-    module.logging.nginx_log_group_arn
+    aws_cloudwatch_log_group.app.arn,
+    aws_cloudwatch_log_group.nginx.arn
   ]
 }
 
@@ -98,10 +102,14 @@ module "elasticache" {
   vpc_id         = module.vpc.vpc_id
   subnet_ids     = module.vpc.public_subnets
   allowed_sg_ids = module.ec2.security_group_ids
-  auth_token     = random_password.redis_auth.result
+  auth_token     = module.auth.password
 }
 
 data "aws_route53_zone" "main" {
   name         = local.current_env_config.zone_name
   private_zone = false
+}
+
+module "auth" {
+  source = "./modules/auth"
 }

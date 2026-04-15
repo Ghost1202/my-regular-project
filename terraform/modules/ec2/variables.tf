@@ -53,7 +53,3 @@ variable "cloudwatch_log_group_arns" {
   default     = []
 }
 
-variable "policy_arn" {
-  type        = string
-  description = "Policy for buckup"
-}
