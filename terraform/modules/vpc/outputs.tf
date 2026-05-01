@@ -1,9 +1,9 @@
 output "vpc_id" {
-  value       = aws_vpc.this.id
+  value       = module.vpc.vpc_id
   description = "VPC ID"
 }
 
 output "public_subnet_ids" {
-  value       = aws_subnet.public[*].id
+  value       = module.vpc.public_subnets
   description = "Public subnet IDs"
 }

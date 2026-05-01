@@ -31,6 +31,7 @@ variable "engine_version" {
 }
 
 variable "auth_token" {
-  type      = string
-  sensitive = true
+  type        = string
+  sensitive   = true
+  description = "Auth token for Redis cluster"
 }

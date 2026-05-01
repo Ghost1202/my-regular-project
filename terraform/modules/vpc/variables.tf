@@ -1,10 +1,14 @@
 variable "name" {
+  description = "Project name used for VPC naming"
   type        = string
-  description = "Name prefix for VPC resources"
 }
 
 variable "vpc_cidr" {
+  description = "CIDR block for VPC"
   type        = string
-  description = "CIDR block for the VPC"
-  default     = "10.0.0.0/16"
+}
+
+variable "azs" {
+  description = "Availability zones"
+  type        = list(string)
 }
