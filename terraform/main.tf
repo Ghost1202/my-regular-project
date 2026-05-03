@@ -1,83 +1,137 @@
+data "aws_region" "this" {}
+data "aws_availability_zones" "available" {}
+
 locals {
-  project = "myapp"
+  project = "app"
   env     = terraform.workspace
   name    = "${local.project}-${local.env}"
 
-  aws_region = "eu-central-1"
+  base_config = {
+    zone_name         = "kbnby.online"
+    fqdn              = "app.kbnby.online"
+    key_name          = "my-regular-project-dev"
+    ssh_allowed_cidrs = ["0.0.0.0/0"]
+    ecr_registry      = "703288805108.dkr.ecr.eu-central-1.amazonaws.com"
+  }
 
-  zone_name = "kbnby.online"
-  fqdn      = "app.kbnby.online"
+  envs = {
+    default = {}
+    dev     = {}
+  }
 
-  key_name          = "my-new-key"
-  ssh_allowed_cidrs = ["0.0.0.0/32"]
-
-  ami           = "ami-0e872aee57663ae2d"
-  instance_type = "t3.micro"
-  allocate_eip  = true
+  current_env_config = merge(
+    local.base_config,
+    lookup(local.envs, local.env, local.envs.default)
+  )
 
   vpc_cidr = "10.0.0.0/16"
 
-  backup_bucket_name = "myapp-default-db-backups"
-  backup_prefix      = "backups/"
+  user_data = base64encode(templatefile("${path.root}/assets/userdata.tpl", {
+    fqdn                 = local.current_env_config.fqdn
+    redis_host           = module.elasticache.primary_endpoint_address
+    redis_port           = module.elasticache.port
+    redis_auth_token     = module.auth.password
+    app_log_group_name   = aws_cloudwatch_log_group.app.name
+    nginx_log_group_name = aws_cloudwatch_log_group.nginx.name
+    aws_region           = data.aws_region.this.region
+    ecr_registry         = local.current_env_config.ecr_registry
+  }))
+}
 
-  db_name     = "app"
-  db_user     = "app"
-  db_password = "change-me"
-  db_host     = "127.0.0.1"
-  db_port     = 5432
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/${local.name}/app"
+  retention_in_days = 7
+}
 
-  user_data = templatefile("${path.root}/assets/userdata.tpl", {
-    fqdn               = local.fqdn
-    db_name            = local.db_name
-    db_user            = local.db_user
-    db_password        = local.db_password
-    db_host            = local.db_host
-    db_port            = local.db_port
-    backup_bucket_name = local.backup_bucket_name
-    backup_prefix      = local.backup_prefix
-    aws_region         = local.aws_region
-  })
+resource "aws_cloudwatch_log_group" "nginx" {
+  name              = "/${local.name}/nginx"
+  retention_in_days = 7
+}
+
+module "auth" {
+  source              = "./modules/auth"
+  name                = local.name
+  discord_webhook_url = var.discord_webhook_url
+}
+
+module "alerting" {
+  source = "./modules/alerting"
+
+  name                       = local.name
+  autoscaling_group_name     = module.asg.autoscaling_group_name
+  discord_webhook_secret_arn = module.auth.discord_webhook_secret_arn
 }
 
 module "vpc" {
-  source = "./modules/vpc"
-
+  source   = "./modules/vpc"
   name     = local.name
   vpc_cidr = local.vpc_cidr
+  azs      = slice(data.aws_availability_zones.available.names, 0, 3)
 }
 
 module "s3" {
-  source = "./modules/s3"
-
+  source      = "./modules/s3"
   name        = local.name
-  bucket_name = local.backup_bucket_name
-  prefix      = local.backup_prefix
+  bucket_name = "${local.name}-db-backups"
+  prefix      = "db-backups/"
 }
 
-module "app_ec2" {
-  source = "./modules/ec2"
+module "acm" {
+  source  = "./modules/acm"
+  domain  = local.current_env_config.fqdn
+  zone_id = data.aws_route53_zone.main.zone_id
+}
 
-  name              = local.name
-  ami               = local.ami
-  instance_type     = local.instance_type
-  allocate_eip      = local.allocate_eip
-  key_name          = local.key_name
-  subnet_id         = module.vpc.public_subnet_ids[0]
-  vpc_id            = module.vpc.vpc_id
-  ssh_allowed_cidrs = local.ssh_allowed_cidrs
-  user_data         = local.user_data
-  policy_arn        = module.s3.policy_arn
+module "alb" {
+  source          = "./modules/alb"
+  name            = local.name
+  vpc_id          = module.vpc.vpc_id
+  subnet_ids      = module.vpc.public_subnet_ids
+  certificate_arn = module.acm.certificate_arn
+}
+
+module "asg" {
+  source = "./modules/asg"
+
+  name                  = local.name
+  ami                   = "ami-0a496c88315b8e18e"
+  key_name              = local.current_env_config.key_name
+  vpc_id                = module.vpc.vpc_id
+  subnet_ids            = module.vpc.public_subnet_ids
+  alb_security_group_id = module.alb.security_group_id
+  target_group_arn      = module.alb.target_group_arn
+  user_data             = local.user_data
+
+  policy_arns = [module.s3.policy_arn]
+
+  cloudwatch_log_group_arns = [
+    aws_cloudwatch_log_group.app.arn,
+    aws_cloudwatch_log_group.nginx.arn
+  ]
+}
+
+module "elasticache" {
+  source         = "./modules/elasticache"
+  name           = local.name
+  vpc_id         = module.vpc.vpc_id
+  subnet_ids     = module.vpc.public_subnet_ids
+  allowed_sg_ids = [module.asg.security_group_id]
+  auth_token     = module.auth.password
 }
 
 data "aws_route53_zone" "main" {
-  name         = local.zone_name
+  name         = local.current_env_config.zone_name
   private_zone = false
 }
 
 resource "aws_route53_record" "this" {
   zone_id = data.aws_route53_zone.main.zone_id
-  name    = local.fqdn
+  name    = local.current_env_config.fqdn
   type    = "A"
-  ttl     = 300
-  records = [module.app_ec2.public_ip]
+
+  alias {
+    name                   = module.alb.dns_name
+    zone_id                = module.alb.zone_id
+    evaluate_target_health = true
+  }
 }

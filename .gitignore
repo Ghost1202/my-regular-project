@@ -29,6 +29,7 @@ vendor/
 docker-compose.override.yml
 **/.terraform/
 **/.terraform.lock.hcl
+*.tfvars
 *.tfstate
 *.tfstate.*
 crash.log
