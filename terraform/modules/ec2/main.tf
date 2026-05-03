@@ -15,13 +15,46 @@ resource "aws_iam_role" "this" {
   })
 
   tags = {
-    Name = "${var.name}-ec2-role"
+    Name = var.name
   }
 }
 
-resource "aws_iam_role_policy_attachment" "backup" {
+resource "aws_iam_role_policy_attachment" "ecr" {
   role       = aws_iam_role.this.name
-  policy_arn = var.policy_arn
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "extra" {
+  for_each   = toset(var.policy_arns)
+  role       = aws_iam_role.this.name
+  policy_arn = each.value
+}
+
+resource "aws_iam_role_policy" "logs_least_privilege" {
+  name = "${var.name}-logs-write"
+  role = aws_iam_role.this.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogStreams",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          for arn in var.cloudwatch_log_group_arns : "${arn}:*"
+        ]
+      }
+    ]
+  })
 }
 
 resource "aws_iam_instance_profile" "this" {
@@ -29,7 +62,7 @@ resource "aws_iam_instance_profile" "this" {
   role = aws_iam_role.this.name
 
   tags = {
-    Name = "${var.name}-ec2-profile"
+    Name = var.name
   }
 }
 
@@ -62,7 +95,7 @@ resource "aws_security_group" "this" {
   }
 
   tags = {
-    Name = "${var.name}-sg"
+    Name = var.name
   }
 }
 
@@ -77,16 +110,6 @@ resource "aws_instance" "this" {
   user_data                   = var.user_data
 
   tags = {
-    Name = "${var.name}-ec2"
-  }
-}
-
-resource "aws_eip" "this" {
-  count    = var.allocate_eip ? 1 : 0
-  instance = aws_instance.this.id
-  domain   = "vpc"
-
-  tags = {
-    Name = "${var.name}-eip"
+    Name = var.name
   }
 }
