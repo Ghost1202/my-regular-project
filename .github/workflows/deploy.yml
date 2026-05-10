@@ -1,0 +1,50 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  deploy:
+    name: Deploy application to EC2
+    runs-on: ubuntu-latest
+    needs: build
+
+    env:
+      EC2_REMOTE_PATH: /home/ec2-user/app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create SSH key file
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > my-ec2-key.pem
+          chmod 600 my-ec2-key.pem
+
+      - name: Copy docker-compose to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i my-ec2-key.pem docker-compose.yml \
+            ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }}:${{ env.EC2_REMOTE_PATH }}/docker-compose.yml
+
+      - name: Trigger remote deploy on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i my-ec2-key.pem \
+            ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }} <<'EOF'
+          set -euo pipefail
+
+          APP_DIR=/home/ec2-user/app
+          mkdir -p "$APP_DIR"
+          cd "$APP_DIR"
+
+          docker --version || { echo "docker not found on remote host"; exit 1; }
+          docker compose pull
+          docker compose up -d --remove-orphans
+          docker ps --filter "name=go-todo-app" --filter "name=web" || true
+          EOF
