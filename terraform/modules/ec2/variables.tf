@@ -15,12 +15,6 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
-variable "allocate_eip" {
-  type        = bool
-  description = "Whether to allocate an Elastic IP"
-  default     = true
-}
-
 variable "key_name" {
   type        = string
   description = "Name of the SSH key pair to use"
@@ -41,12 +35,21 @@ variable "ssh_allowed_cidrs" {
   description = "Allowed CIDRs for SSH access"
 }
 
+
+variable "policy_arns" {
+  type        = list(string)
+  description = "List of IAM policy ARNs to attach to the EC2 role"
+  default     = []
+}
+
 variable "user_data" {
   type        = string
   description = "Rendered user data script for the EC2 instance"
 }
 
-variable "policy_arn" {
-  type        = string
-  description = "IAM policy ARN to attach to the EC2 role"
+variable "cloudwatch_log_group_arns" {
+  type        = list(string)
+  description = "List of CloudWatch log group ARNs for least-privilege writes"
+  default     = []
 }
+
