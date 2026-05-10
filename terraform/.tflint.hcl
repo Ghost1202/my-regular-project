@@ -1,7 +1,4 @@
-- name: Run TFLint
-        run: tflint --recursive --config $(pwd)/.tflint.hcl
-        working-directory: terraform
-
+cat > terraform/.tflint.hcl << 'EOF'
 plugin "terraform" {
   enabled = true
   preset  = "recommended"
@@ -14,3 +11,4 @@ rule "terraform_required_version" {
 rule "terraform_required_providers" {
   enabled = false
 }
+EOF
