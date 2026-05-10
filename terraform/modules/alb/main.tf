@@ -20,9 +20,18 @@ resource "aws_security_group" "this" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "HTTP to targets"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -32,11 +41,12 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_lb" "this" {
-  name               = var.name
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.this.id]
-  subnets            = var.subnet_ids
+  name                       = var.name
+  internal                   = false
+  load_balancer_type         = "application"
+  security_groups            = [aws_security_group.this.id]
+  subnets                    = var.subnet_ids
+  drop_invalid_header_fields = true
 
   tags = {
     Name = var.name
@@ -54,9 +64,9 @@ resource "aws_lb_target_group" "this" {
     protocol            = "HTTP"
     matcher             = "200"
     interval            = 30
-    timeout             = 10
+    timeout             = 5
     healthy_threshold   = 2
-    unhealthy_threshold = 5
+    unhealthy_threshold = 3
   }
 
   tags = {

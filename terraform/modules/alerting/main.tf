@@ -2,7 +2,8 @@ data "aws_region" "this" {}
 data "aws_caller_identity" "this" {}
 
 resource "aws_sns_topic" "this" {
-  name = var.name
+  name              = var.name
+  kms_master_key_id = "alias/aws/sns"
 
   tags = {
     Name = var.name

@@ -96,9 +96,18 @@ resource "aws_security_group" "this" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "HTTP to internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -114,6 +123,12 @@ resource "aws_launch_template" "this" {
   key_name      = var.key_name
 
   user_data = var.user_data
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
 
   iam_instance_profile {
     name = aws_iam_instance_profile.this.name
@@ -148,7 +163,7 @@ resource "aws_autoscaling_group" "this" {
   target_group_arns = [var.target_group_arn]
 
   health_check_type         = "ELB"
-  health_check_grace_period = 120
+  health_check_grace_period = 420
 
   launch_template {
     id      = aws_launch_template.this.id
