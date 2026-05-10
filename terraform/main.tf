@@ -1,5 +1,4 @@
 data "aws_region" "this" {}
-
 data "aws_availability_zones" "available" {}
 
 locals {
@@ -26,8 +25,8 @@ locals {
   )
 
   vpc_cidr = "10.0.0.0/16"
+
   user_data = base64encode(templatefile("${path.root}/assets/userdata.tpl", {
-  user_data = templatefile("${path.root}/assets/userdata.tpl", {
     fqdn                 = local.current_env_config.fqdn
     redis_host           = module.elasticache.primary_endpoint_address
     redis_port           = module.elasticache.port
@@ -37,8 +36,6 @@ locals {
     aws_region           = data.aws_region.this.region
     ecr_registry         = local.current_env_config.ecr_registry
   }))
-
-  })
 }
 
 resource "aws_cloudwatch_log_group" "app" {
@@ -52,30 +49,9 @@ resource "aws_cloudwatch_log_group" "nginx" {
 }
 
 module "auth" {
-  source = "./modules/auth"
-  name   = local.name
-}
-
-module "vpc" {
-  source = "./modules/vpc"
-
-resource "aws_cloudwatch_log_group" "nginx" {
-  name              = "/${local.name}/nginx"
-  retention_in_days = 7
-}
-
-module "auth" {
   source              = "./modules/auth"
   name                = local.name
   discord_webhook_url = var.discord_webhook_url
-}
-
-module "alerting" {
-  source = "./modules/alerting"
-
-  name                       = local.name
-  autoscaling_group_name     = module.asg.autoscaling_group_name
-  discord_webhook_secret_arn = module.auth.discord_webhook_secret_arn
 }
 
 module "vpc" {
@@ -118,16 +94,6 @@ module "asg" {
   target_group_arn      = module.alb.target_group_arn
   user_data             = local.user_data
 
-module "ec2" {
-  source = "./modules/ec2"
-
-  name              = local.name
-  subnet_id         = module.vpc.public_subnet_ids[0]
-  vpc_id            = module.vpc.vpc_id
-  key_name          = local.current_env_config.key_name
-  ssh_allowed_cidrs = local.current_env_config.ssh_allowed_cidrs
-  user_data         = local.user_data
-
   policy_arns = [module.s3.policy_arn]
 
   cloudwatch_log_group_arns = [
@@ -142,14 +108,15 @@ module "elasticache" {
   vpc_id         = module.vpc.vpc_id
   subnet_ids     = module.vpc.public_subnet_ids
   allowed_sg_ids = [module.asg.security_group_id]
-    
-  source = "./modules/elasticache"
-
-  name           = local.name
-  vpc_id         = module.vpc.vpc_id
-  subnet_ids     = module.vpc.public_subnet_ids
-  allowed_sg_ids = module.ec2.security_group_ids
   auth_token     = module.auth.password
+}
+
+module "alerting" {
+  source = "./modules/alerting"
+
+  name                       = local.name
+  autoscaling_group_name     = module.asg.autoscaling_group_name
+  discord_webhook_secret_arn = module.auth.discord_webhook_secret_arn
 }
 
 data "aws_route53_zone" "main" {
@@ -161,12 +128,10 @@ resource "aws_route53_record" "this" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = local.current_env_config.fqdn
   type    = "A"
+
   alias {
     name                   = module.alb.dns_name
     zone_id                = module.alb.zone_id
     evaluate_target_health = true
   }
-
-  ttl     = 300
-  records = [module.ec2.public_ip]
 }
