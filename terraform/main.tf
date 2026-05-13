@@ -1,3 +1,6 @@
+data "aws_region" "this" {}
+data "aws_availability_zones" "available" {}
+
 locals {
   project = "app"
   env     = terraform.workspace
@@ -46,9 +49,8 @@ resource "aws_cloudwatch_log_group" "nginx" {
 }
 
 module "auth" {
-  source              = "./modules/auth"
-  name                = local.name
-  discord_webhook_url = var.discord_webhook_url
+  source = "./modules/auth"
+  name   = local.name
 }
 
 module "vpc" {
@@ -108,12 +110,16 @@ module "elasticache" {
   auth_token     = module.auth.password
 }
 
+data "aws_secretsmanager_secret" "discord" {
+  name = "${local.name}-discord-webhook"
+}
+
 module "alerting" {
   source = "./modules/alerting"
 
   name                       = local.name
   autoscaling_group_name     = module.asg.autoscaling_group_name
-  discord_webhook_secret_arn = module.auth.discord_webhook_secret_arn
+  discord_webhook_secret_arn = data.aws_secretsmanager_secret.discord.arn
 }
 
 data "aws_route53_zone" "main" {

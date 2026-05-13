@@ -8,8 +8,3 @@ output "password" {
   sensitive   = true
   description = "Generated password"
 }
-
-output "discord_webhook_secret_arn" {
-  value       = aws_secretsmanager_secret.discord.arn
-  description = "ARN of the Discord webhook secret"
-}

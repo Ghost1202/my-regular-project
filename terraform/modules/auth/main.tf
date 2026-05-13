@@ -13,18 +13,3 @@ resource "aws_secretsmanager_secret_version" "this" {
     password = random_password.this.result
   })
 }
-
-resource "aws_secretsmanager_secret" "discord" {
-  name = "${var.name}-discord-webhook"
-
-  tags = {
-    Name = var.name
-  }
-}
-
-resource "aws_secretsmanager_secret_version" "discord" {
-  secret_id = aws_secretsmanager_secret.discord.id
-  secret_string = jsonencode({
-    webhook_url = var.discord_webhook_url
-  })
-}
