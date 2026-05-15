@@ -36,7 +36,6 @@ usermod -aG docker ubuntu || true
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
 unzip -q /tmp/awscliv2.zip -d /tmp
 /tmp/aws/install --update
-/tmp/aws/install
 rm -rf /tmp/aws /tmp/awscliv2.zip
 
 aws ecr get-login-password --region ${aws_region} | \
