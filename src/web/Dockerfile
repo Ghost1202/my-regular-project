@@ -9,6 +9,7 @@ RUN npm run build -- --prod
 
 ### STAGE 2: RUN ###
 FROM nginx:1.27-alpine
+RUN apk update && apk upgrade --no-cache
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /usr/src/app/dist/web /usr/share/nginx/html
 EXPOSE 80

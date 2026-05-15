@@ -22,7 +22,7 @@ RUN mkdir -p ./docs && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/todoapi ./cmd/api
 
 FROM alpine:3.21
-
+RUN apk update && apk upgrade --no-cache
 RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
