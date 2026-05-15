@@ -1,8 +1,10 @@
 ### STAGE 1: BUILD ###
-FROM node:20.19.3-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
 COPY . .
-RUN npm install
+RUN npm install --legacy-peer-deps
+RUN npm install postcss@8.4.31 --save-dev --legacy-peer-deps
+ENV NODE_OPTIONS=--openssl-legacy-provider
 RUN npm run build -- --prod
 
 ### STAGE 2: RUN ###
