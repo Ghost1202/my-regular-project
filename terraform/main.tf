@@ -1,6 +1,10 @@
 data "aws_region" "this" {}
 data "aws_availability_zones" "available" {}
 
+data "aws_ssm_parameter" "ami" {
+  name = "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
+}
+
 locals {
   project = "app"
   env     = terraform.workspace
@@ -85,7 +89,7 @@ module "asg" {
   source = "./modules/asg"
 
   name                  = local.name
-  ami                   = "ami-0a496c88315b8e18e"
+  ami                   = data.aws_ssm_parameter.ami.value
   key_name              = local.current_env_config.key_name
   vpc_id                = module.vpc.vpc_id
   subnet_ids            = module.vpc.public_subnet_ids
