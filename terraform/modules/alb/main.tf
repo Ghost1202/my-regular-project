@@ -1,104 +1,85 @@
-resource "aws_security_group" "this" {
-  name        = "${var.name}-alb-sg"
-  description = "Allow HTTP and HTTPS from internet"
-  vpc_id      = var.vpc_id
-
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTPS"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "HTTPS to internet"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "HTTP to targets"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
+locals {
   tags = {
     Name = var.name
   }
 }
 
-resource "aws_lb" "this" {
-  name                       = var.name
-  internal                   = false
-  load_balancer_type         = "application"
-  security_groups            = [aws_security_group.this.id]
-  subnets                    = var.subnet_ids
+module "alb" {
+  source  = "terraform-aws-modules/alb/aws"
+  version = "~> 9.0"
+
+  name               = var.name
+  load_balancer_type = "application"
+  internal           = false
+
+  vpc_id  = var.vpc_id
+  subnets = var.subnet_ids
+
   drop_invalid_header_fields = true
 
-  tags = {
-    Name = var.name
-  }
-}
-
-resource "aws_lb_target_group" "this" {
-  name     = var.name
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
-
-  health_check {
-    path                = var.health_check_path
-    protocol            = "HTTP"
-    matcher             = "200"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 3
-  }
-
-  tags = {
-    Name = var.name
-  }
-}
-
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.this.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+  security_group_ingress_rules = {
+    http = {
+      from_port   = 80
+      to_port     = 80
+      ip_protocol = "tcp"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
+    https = {
+      from_port   = 443
+      to_port     = 443
+      ip_protocol = "tcp"
+      cidr_ipv4   = "0.0.0.0/0"
     }
   }
-}
 
-resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.this.arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.this.arn
+  security_group_egress_rules = {
+    all = {
+      ip_protocol = "-1"
+      cidr_ipv4   = "0.0.0.0/0"
+    }
   }
+
+  listeners = {
+    http = {
+      port     = 80
+      protocol = "HTTP"
+      redirect = {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+    https = {
+      port            = 443
+      protocol        = "HTTPS"
+      ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+      certificate_arn = var.certificate_arn
+
+      forward = {
+        target_group_key = "app"
+      }
+    }
+  }
+
+  target_groups = {
+    app = {
+      name              = var.name
+      protocol          = "HTTP"
+      port              = 80
+      target_type       = "instance"
+      create_attachment = false
+
+      health_check = {
+        path                = var.health_check_path
+        protocol            = "HTTP"
+        matcher             = "200"
+        interval            = 30
+        timeout             = 5
+        healthy_threshold   = 2
+        unhealthy_threshold = 3
+      }
+    }
+  }
+
+  tags = local.tags
 }

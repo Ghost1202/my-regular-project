@@ -1,7 +1,13 @@
-data "aws_region" "this" {}
-data "aws_caller_identity" "this" {}
+data "archive_file" "lambda" {
+  type        = "zip"
+  source_file = "${path.module}/lambda.py"
+  output_path = "${path.module}/.build/lambda.zip"
+}
 
-resource "aws_sns_topic" "this" {
+module "sns" {
+  source  = "terraform-aws-modules/sns/aws"
+  version = "~> 6.0"
+
   name              = var.name
   kms_master_key_id = "alias/aws/sns"
 
@@ -10,37 +16,23 @@ resource "aws_sns_topic" "this" {
   }
 }
 
-resource "aws_iam_role" "lambda" {
-  name = "${var.name}-lambda-role"
+module "lambda" {
+  source  = "terraform-aws-modules/lambda/aws"
+  version = "~> 8.0"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
-      }
-    ]
-  })
+  function_name = var.name
+  handler       = "lambda.handler"
+  runtime       = "python3.12"
 
-  tags = {
-    Name = var.name
+  create_package         = false
+  local_existing_package = data.archive_file.lambda.output_path
+
+  environment_variables = {
+    DISCORD_WEBHOOK_SECRET_ARN = var.discord_webhook_secret_arn
   }
-}
 
-resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_role_policy" "secrets" {
-  name = "${var.name}-secrets-read"
-  role = aws_iam_role.lambda.id
-
-  policy = jsonencode({
+  attach_policy_json = true
+  policy_json = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
@@ -50,25 +42,11 @@ resource "aws_iam_role_policy" "secrets" {
       }
     ]
   })
-}
 
-data "archive_file" "lambda" {
-  type        = "zip"
-  source_file = "${path.module}/lambda.py"
-  output_path = "${path.module}/lambda.zip"
-}
-
-resource "aws_lambda_function" "this" {
-  filename         = data.archive_file.lambda.output_path
-  function_name    = var.name
-  role             = aws_iam_role.lambda.arn
-  handler          = "lambda.handler"
-  runtime          = "python3.12"
-  source_code_hash = data.archive_file.lambda.output_base64sha256
-
-  environment {
-    variables = {
-      DISCORD_WEBHOOK_SECRET_ARN = var.discord_webhook_secret_arn
+  allowed_triggers = {
+    sns = {
+      principal  = "sns.amazonaws.com"
+      source_arn = module.sns.topic_arn
     }
   }
 
@@ -77,18 +55,10 @@ resource "aws_lambda_function" "this" {
   }
 }
 
-resource "aws_lambda_permission" "sns" {
-  statement_id  = "AllowSNSInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.this.function_name
-  principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.this.arn
-}
-
 resource "aws_sns_topic_subscription" "lambda" {
-  topic_arn = aws_sns_topic.this.arn
+  topic_arn = module.sns.topic_arn
   protocol  = "lambda"
-  endpoint  = aws_lambda_function.this.arn
+  endpoint  = module.lambda.lambda_function_arn
 }
 
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
@@ -106,8 +76,8 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
     AutoScalingGroupName = var.autoscaling_group_name
   }
 
-  alarm_actions = [aws_sns_topic.this.arn]
-  ok_actions    = [aws_sns_topic.this.arn]
+  alarm_actions = [module.sns.topic_arn]
+  ok_actions    = [module.sns.topic_arn]
 
   tags = {
     Name = var.name
@@ -129,8 +99,8 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
     AutoScalingGroupName = var.autoscaling_group_name
   }
 
-  alarm_actions = [aws_sns_topic.this.arn]
-  ok_actions    = [aws_sns_topic.this.arn]
+  alarm_actions = [module.sns.topic_arn]
+  ok_actions    = [module.sns.topic_arn]
 
   tags = {
     Name = var.name

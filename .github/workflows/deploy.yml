@@ -21,30 +21,26 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - name: Create SSH key file
+      - name: Configure SSH
         run: |
-          echo "${{ secrets.EC2_SSH_KEY }}" > my-ec2-key.pem
-          chmod 600 my-ec2-key.pem
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy docker-compose to EC2
+      - name: Sync docker-compose files to EC2
         run: |
-          scp -o StrictHostKeyChecking=no -i my-ec2-key.pem docker-compose.yml \
-            ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }}:${{ env.EC2_REMOTE_PATH }}/docker-compose.yml
+          rsync -avz -e "ssh -i ~/.ssh/ec2_key" \
+            docker-compose.yml docker-compose.override.yml \
+            ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }}:${{ env.EC2_REMOTE_PATH }}/
 
-      - name: Trigger remote deploy on EC2
+      - name: Start services if not running
         run: |
-          ssh -o StrictHostKeyChecking=no -i my-ec2-key.pem \
+          ssh -i ~/.ssh/ec2_key \
             ${{ secrets.EC2_USER || 'ec2-user' }}@${{ secrets.EC2_HOST }} <<'EOF'
           set -euo pipefail
-
-          APP_DIR=/home/ec2-user/app
-          mkdir -p "$APP_DIR"
-          cd "$APP_DIR"
-
-          docker --version || { echo "docker not found on remote host"; exit 1; }
-          docker compose pull
+          cd /home/ec2-user/app
           docker compose up -d --remove-orphans
-          docker ps --filter "name=go-todo-app" --filter "name=web" || true
           EOF
