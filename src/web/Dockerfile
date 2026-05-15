@@ -1,12 +1,12 @@
 ### STAGE 1: BUILD ###
-FROM node:15-alpine AS builder
+FROM node:20.19.3-alpine AS builder
 WORKDIR /usr/src/app
 COPY . .
 RUN npm install
 RUN npm run build -- --prod
 
 ### STAGE 2: RUN ###
-FROM nginx:1.19.7-alpine
+FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /usr/src/app/dist/web /usr/share/nginx/html
 EXPOSE 80
