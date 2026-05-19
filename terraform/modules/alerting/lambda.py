@@ -4,7 +4,6 @@ import boto3
 import os
 
 def handler(event, context):
-    # Читаем webhook из Secrets Manager
     secret_arn = os.environ['DISCORD_WEBHOOK_SECRET_ARN']
     client = boto3.client('secretsmanager')
     secret = client.get_secret_value(SecretId=secret_arn)

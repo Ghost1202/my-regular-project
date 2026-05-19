@@ -1,12 +1,9 @@
 name: Go CI
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
     branches:
-      - master
+      - dev
 
 concurrency:
   group: go-ci-${{ github.event.pull_request.number || github.run_id }}
@@ -26,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.16'
+          go-version: '1.28'
           cache: true
 
       - name: Build
