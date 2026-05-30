@@ -109,7 +109,6 @@ module "asg" {
   create_iam_instance_profile = true
   iam_role_name               = "${var.name}-ec2-role"
   iam_role_description        = "EC2 role for ${var.name}"
-  iam_role_policies           = local.managed_policies
 
   scaling_policies = {
     cpu = {
@@ -126,8 +125,12 @@ module "asg" {
   tags = local.tags
 }
 
-resource "aws_iam_role_policy_attachment" "extra" {
-  for_each   = toset(var.policy_arns)
+resource "aws_iam_role_policy_attachment" "all" {
+  for_each = merge(
+    local.managed_policies,
+    { for idx, arn in var.policy_arns : "extra-${idx}" => arn }
+  )
+
   role       = module.asg.iam_role_name
   policy_arn = each.value
 }
