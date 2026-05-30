@@ -29,9 +29,3 @@ variable "engine_version" {
   description = "Redis engine version"
   default     = "7.1"
 }
-
-variable "auth_token" {
-  type        = string
-  sensitive   = true
-  description = "Auth token for Redis cluster"
-}

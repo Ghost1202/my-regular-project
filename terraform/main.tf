@@ -111,7 +111,6 @@ module "elasticache" {
   vpc_id         = module.vpc.vpc_id
   subnet_ids     = module.vpc.public_subnet_ids
   allowed_sg_ids = [module.asg.security_group_id]
-  auth_token     = module.auth.password
 }
 
 data "aws_secretsmanager_secret" "discord" {
