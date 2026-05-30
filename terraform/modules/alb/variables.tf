@@ -23,3 +23,9 @@ variable "health_check_path" {
   description = "Path for ALB health checks"
   default     = "/api/status"
 }
+
+variable "tags" {
+  type        = map(string)
+  description = "Common tags applied to all resources"
+  default     = {}
+}

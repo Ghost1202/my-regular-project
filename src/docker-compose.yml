@@ -35,7 +35,7 @@ services:
       - app-network
 
   mongo:
-    image: mongo:3
+    image: mongo:3.6.23
     container_name: go-todo-mongo
     ports:
       - "27017:27017"
@@ -46,7 +46,7 @@ services:
       - app-network
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.62.0
     container_name: jaeger
     ports:
       - "16686:16686"
@@ -56,7 +56,7 @@ services:
       - app-network
 
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower:1.7.1
     container_name: watchtower
     restart: unless-stopped
     volumes:

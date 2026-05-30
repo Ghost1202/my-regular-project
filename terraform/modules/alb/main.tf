@@ -1,7 +1,5 @@
 locals {
-  tags = {
-    Name = var.name
-  }
+  tags = merge(var.tags, { Name = var.name })
 }
 
 module "alb" {

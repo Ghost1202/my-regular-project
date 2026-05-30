@@ -1,3 +1,7 @@
+locals {
+  tags = merge(var.tags, { Name = var.domain })
+}
+
 module "acm" {
   source  = "terraform-aws-modules/acm/aws"
   version = "~> 5.0"
@@ -8,7 +12,5 @@ module "acm" {
   validation_method   = "DNS"
   wait_for_validation = true
 
-  tags = {
-    Name = var.domain
-  }
+  tags = local.tags
 }

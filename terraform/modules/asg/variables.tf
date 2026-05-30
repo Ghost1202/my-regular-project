@@ -85,3 +85,9 @@ variable "ssh_allowed_cidrs" {
   description = "CIDRs allowed for SSH access"
   default     = ["0.0.0.0/0"]
 }
+
+variable "tags" {
+  type        = map(string)
+  description = "Common tags applied to all resources"
+  default     = {}
+}

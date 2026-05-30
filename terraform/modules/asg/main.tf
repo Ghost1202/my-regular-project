@@ -1,68 +1,9 @@
-resource "aws_iam_role" "this" {
-  name = "${var.name}-ec2-role"
+locals {
+  tags = merge(var.tags, { Name = var.name })
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = var.name
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ecr" {
-  role       = aws_iam_role.this.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-}
-
-resource "aws_iam_role_policy_attachment" "cloudwatch" {
-  role       = aws_iam_role.this.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "extra" {
-  for_each   = toset(var.policy_arns)
-  role       = aws_iam_role.this.name
-  policy_arn = each.value
-}
-
-resource "aws_iam_role_policy" "logs" {
-  name = "${var.name}-logs-write"
-  role = aws_iam_role.this.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "logs:DescribeLogStreams",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
-        Resource = [
-          for arn in var.cloudwatch_log_group_arns : "${arn}:*"
-        ]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_instance_profile" "this" {
-  name = "${var.name}-ec2-profile"
-  role = aws_iam_role.this.name
-
-  tags = {
-    Name = var.name
+  managed_policies = {
+    ecr        = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+    cloudwatch = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
   }
 }
 
@@ -111,47 +52,13 @@ resource "aws_security_group" "this" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = var.name
-  }
+  tags = local.tags
 }
 
-resource "aws_launch_template" "this" {
-  name          = var.name
-  image_id      = var.ami
-  instance_type = var.instance_type
-  key_name      = var.key_name
+module "asg" {
+  source  = "terraform-aws-modules/autoscaling/aws"
+  version = "~> 9.0"
 
-  user_data = var.user_data
-
-  metadata_options {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 1
-  }
-
-  iam_instance_profile {
-    name = aws_iam_instance_profile.this.name
-  }
-
-  network_interfaces {
-    associate_public_ip_address = true
-    security_groups             = [aws_security_group.this.id]
-  }
-
-  tag_specifications {
-    resource_type = "instance"
-    tags = {
-      Name = var.name
-    }
-  }
-
-  tags = {
-    Name = var.name
-  }
-}
-
-resource "aws_autoscaling_group" "this" {
   name = var.name
 
   min_size         = var.min_size
@@ -160,32 +67,78 @@ resource "aws_autoscaling_group" "this" {
 
   vpc_zone_identifier = var.subnet_ids
 
-  target_group_arns = [var.target_group_arn]
+  traffic_source_attachments = {
+    app = {
+      traffic_source_identifier = var.target_group_arn
+      traffic_source_type       = "elbv2"
+    }
+  }
 
   health_check_type         = "ELB"
   health_check_grace_period = 420
 
-  launch_template {
-    id      = aws_launch_template.this.id
-    version = "$Latest"
+  launch_template_name        = var.name
+  launch_template_description = "Launch template for ${var.name}"
+  image_id                    = var.ami
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  user_data                   = var.user_data
+
+  metadata_options = {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
   }
 
-  tag {
-    key                 = "Name"
-    value               = var.name
-    propagate_at_launch = true
+  network_interfaces = [{
+    associate_public_ip_address = true
+    security_groups             = [aws_security_group.this.id]
+  }]
+
+  create_iam_instance_profile = true
+  iam_role_name               = "${var.name}-ec2-role"
+  iam_role_description        = "EC2 role for ${var.name}"
+  iam_role_policies           = local.managed_policies
+
+  scaling_policies = {
+    cpu = {
+      policy_type = "TargetTrackingScaling"
+      target_tracking_configuration = {
+        predefined_metric_specification = {
+          predefined_metric_type = "ASGAverageCPUUtilization"
+        }
+        target_value = var.cpu_target_utilization
+      }
+    }
   }
+
+  tags = local.tags
 }
 
-resource "aws_autoscaling_policy" "cpu" {
-  name                   = "${var.name}-cpu-scaling"
-  autoscaling_group_name = aws_autoscaling_group.this.name
-  policy_type            = "TargetTrackingScaling"
+resource "aws_iam_role_policy_attachment" "extra" {
+  for_each   = toset(var.policy_arns)
+  role       = module.asg.iam_role_name
+  policy_arn = each.value
+}
 
-  target_tracking_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ASGAverageCPUUtilization"
-    }
-    target_value = var.cpu_target_utilization
-  }
+resource "aws_iam_role_policy" "logs" {
+  name = "${var.name}-logs-write"
+  role = module.asg.iam_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogStreams",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          for arn in var.cloudwatch_log_group_arns : "${arn}:*"
+        ]
+      }
+    ]
+  })
 }
