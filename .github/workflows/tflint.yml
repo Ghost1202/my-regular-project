@@ -23,5 +23,7 @@ jobs:
           tflint_version: latest
 
       - name: Run TFLint
-        run: tflint --recursive --config ./.tflint.hcl
+        run: tflint --recursive
         working-directory: terraform
+        env:
+          TFLINT_CONFIG_FILE: ${{ github.workspace }}/terraform/.tflint.hcl
