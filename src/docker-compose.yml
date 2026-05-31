@@ -35,7 +35,7 @@ services:
       - app-network
 
   mongo:
-    image: mongo:3
+    image: mongo:3.6.23
     container_name: go-todo-mongo
     ports:
       - "27017:27017"
@@ -46,12 +46,27 @@ services:
       - app-network
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.62.0
     container_name: jaeger
     ports:
       - "16686:16686"
       - "14268:14268"
     restart: unless-stopped
+    networks:
+      - app-network
+
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/ec2-user/.docker/config.json:/config.json:ro
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=60
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+    command: go-todo-app go-todo-web
     networks:
       - app-network
 

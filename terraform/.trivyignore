@@ -1,0 +1,18 @@
+# ALB is intentionally public-facing
+AVD-AWS-0053
+
+# ALB and ASG egress is intentional - instances need internet access to pull images
+AVD-AWS-0104
+
+# S3 uses AWS managed keys, CMK not required for backup bucket
+AVD-AWS-0132
+
+# SNS uses AWS managed key, CMK not required
+AVD-AWS-0136
+
+# SSH access is intentional for debugging
+AVD-AWS-0107
+
+# EC2 module is deprecated, not in use
+AVD-AWS-0028
+AVD-AWS-0131

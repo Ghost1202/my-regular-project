@@ -1,0 +1,29 @@
+name: TFLint
+
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - 'terraform/**'
+
+permissions:
+  contents: read
+
+jobs:
+  tflint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Run TFLint
+        run: tflint --recursive
+        working-directory: terraform
+        env:
+          TFLINT_CONFIG_FILE: ${{ github.workspace }}/terraform/.tflint.hcl

@@ -1,3 +1,14 @@
+terraform {
+  required_version = "= 1.15.5"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.33.0"
+    }
+  }
+}
+
 resource "aws_security_group" "this" {
   name        = "${var.name}-redis-sg"
   description = "Allow Redis from EC2"

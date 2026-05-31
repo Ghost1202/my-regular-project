@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log"
 
+	"github.com/mecitsemerci/go-todo-app/internal/api"
 )
 
 func main() {

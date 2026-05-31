@@ -1,6 +1,6 @@
 output "secret_arn" {
   value       = aws_secretsmanager_secret.this.arn
-  description = "ARN of the Secrets Manager secret"
+  description = "ARN of the auth secret"
 }
 
 output "password" {
